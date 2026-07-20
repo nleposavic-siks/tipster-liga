@@ -1,0 +1,955 @@
+<!doctype html>
+<html lang="sr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tipster liga</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ===== BOJE I OSNOVA (mobile first: sve je pisano za telefon,
+     na desktopu se aplikacija samo centrira kao uska kolona) ===== */
+      :root {
+        --felt-900: #0b1a12;
+        --felt-800: #10241a;
+        --felt-700: #173226;
+        --line: #2a5340;
+        --ink: #eaf3ed;
+        --ink-dim: #9db8a9;
+        --gold: #e8b93b;
+        --paper: #f6f1e4;
+        --paper-ink: #2b2a24;
+        --paper-dim: #7b7768;
+        --win: #1e6e42;
+        --loss: #9a392c;
+        --nav-h: 64px; /* visina donjeg menija */
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        font-family: "Inter", system-ui, sans-serif;
+        background: var(--felt-900);
+        color: var(--ink);
+      }
+      /* na širim ekranima aplikacija ostaje uska kolona u sredini */
+      .shell {
+        max-width: 480px;
+        margin: 0 auto;
+        min-height: 100dvh;
+        position: relative;
+      }
+      button {
+        font-family: inherit;
+        cursor: pointer;
+        border: none;
+        background: none;
+        color: inherit;
+      }
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--gold);
+        outline-offset: 2px;
+      }
+
+      .screen {
+        display: none;
+      }
+      .screen.visible {
+        display: block;
+      }
+
+      /* ===== HEADER ===== */
+      header {
+        border-bottom: 1px solid var(--line);
+      }
+      header.hidden {
+        display: none;
+      }
+      .header-inner {
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .brand {
+        min-width: 0;
+      }
+      .brand .eyebrow {
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+      }
+      .brand h1 {
+        font-family: "Oswald", sans-serif;
+        font-weight: 600;
+        font-size: 18px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .chip {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        padding: 5px 10px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--felt-800);
+      }
+      .chip .label {
+        font-size: 9px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+      }
+      .chip .value {
+        font-family: "Oswald", sans-serif;
+        font-size: 17px;
+        font-weight: 600;
+      }
+      .chip.gold .value {
+        color: var(--gold);
+      }
+
+      /* sadržaj: padding dolje da ga donji meni ne prekrije */
+      .content {
+        padding: 18px 16px calc(var(--nav-h) + 28px);
+      }
+
+      /* ===== LOGIN ===== */
+      #screen-login .content {
+        padding-bottom: 20px;
+      }
+      .login-box {
+        padding-top: 16vh;
+        text-align: center;
+      }
+      .login-box .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+      }
+      .login-box h1 {
+        font-family: "Oswald", sans-serif;
+        font-size: 32px;
+        font-weight: 600;
+        margin: 4px 0 30px;
+      }
+      .login-box input {
+        width: 100%;
+        font-size: 16px;
+        padding: 14px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: var(--felt-800);
+        color: var(--ink);
+        text-align: center;
+        margin-bottom: 12px;
+      }
+      .login-box input::placeholder {
+        color: var(--ink-dim);
+      }
+      .btn-gold {
+        display: block;
+        width: 100%;
+        background: var(--gold);
+        color: #221a05;
+        font-family: "Oswald", sans-serif;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        padding: 14px 0;
+        border-radius: 12px;
+        text-transform: uppercase;
+      }
+      .btn-gold:active {
+        filter: brightness(0.95);
+      }
+      .login-note {
+        font-size: 12px;
+        color: var(--ink-dim);
+        margin-top: 14px;
+      }
+
+      /* ===== LIGE ===== */
+      h2.screen-title {
+        font-family: "Oswald", sans-serif;
+        font-weight: 500;
+        font-size: 13px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+        margin: 0 0 12px;
+      }
+      .league-card {
+        width: 100%;
+        text-align: left;
+        background: var(--felt-800);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 18px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .league-card:active {
+        border-color: var(--gold);
+      }
+      .league-card .lc-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .league-card .lc-name {
+        font-family: "Oswald", sans-serif;
+        font-size: 19px;
+        font-weight: 600;
+      }
+      .league-card .lc-sub {
+        font-size: 12.5px;
+        color: var(--ink-dim);
+        margin-top: 4px;
+      }
+      .league-card .arrow {
+        font-size: 20px;
+        color: var(--ink-dim);
+      }
+      .btn-ghost {
+        display: block;
+        width: 100%;
+        text-align: center;
+        border: 1px dashed var(--line);
+        border-radius: 14px;
+        padding: 16px;
+        font-size: 14px;
+        color: var(--ink-dim);
+      }
+      .btn-ghost:active {
+        border-color: var(--gold);
+        color: var(--ink);
+      }
+      .logout {
+        display: block;
+        margin: 30px auto 0;
+        font-size: 12.5px;
+        color: var(--ink-dim);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      /* ===== TIKET FORMA ===== */
+      .ticket {
+        background: var(--paper);
+        color: var(--paper-ink);
+        font-family: "Space Mono", monospace;
+        border-radius: 6px;
+        filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.35));
+      }
+      .ticket-head {
+        padding: 16px 18px 10px;
+        text-align: center;
+        border-bottom: 1px dashed #c9c2ac;
+      }
+      .ticket-head .t-title {
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: 0.18em;
+      }
+      .ticket-head .t-sub {
+        font-size: 10.5px;
+        color: var(--paper-dim);
+        margin-top: 2px;
+      }
+      .ticket-body {
+        padding: 14px 18px 4px;
+      }
+      .field {
+        margin-bottom: 12px;
+      }
+      .field label {
+        display: block;
+        font-size: 11px;
+        color: var(--paper-dim);
+        margin-bottom: 4px;
+      }
+      .field input {
+        width: 100%;
+        font-family: "Space Mono", monospace;
+        font-size: 16px;
+        border: 1px solid #c9c2ac;
+        border-radius: 4px;
+        padding: 10px;
+        background: #fffdf6;
+        color: var(--paper-ink);
+      }
+      .row2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .calc {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        border-top: 1px dashed #c9c2ac;
+        padding-top: 10px;
+        margin-top: 4px;
+      }
+      .calc .win-val {
+        font-weight: 700;
+        font-size: 15px;
+      }
+      .err {
+        color: var(--loss);
+        font-size: 11px;
+        padding: 6px 18px 0;
+        min-height: 16px;
+      }
+      .pay {
+        display: block;
+        width: calc(100% - 36px);
+        margin: 10px 18px 0;
+        background: var(--felt-800);
+        color: var(--gold);
+        font-family: "Oswald", sans-serif;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        padding: 13px 0;
+        border-radius: 6px;
+        text-transform: uppercase;
+      }
+      .pay:disabled {
+        opacity: 0.4;
+      }
+      .barcode {
+        height: 34px;
+        margin: 14px 18px 16px;
+        opacity: 0.8;
+        background: repeating-linear-gradient(
+          90deg,
+          var(--paper-ink) 0 2px,
+          transparent 2px 5px,
+          var(--paper-ink) 5px 6px,
+          transparent 6px 10px
+        );
+      }
+
+      /* ===== LISTA TIPOVA ===== */
+      .tip-card {
+        background: var(--felt-800);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 10px;
+      }
+      .tip-card .top-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .tip-card .info {
+        flex: 1;
+        min-width: 0;
+      }
+      .tip-card .teams {
+        font-weight: 600;
+        font-size: 15px;
+      }
+      .tip-card .detail {
+        font-size: 12.5px;
+        color: var(--ink-dim);
+        margin-top: 3px;
+      }
+      .tip-card .win {
+        font-family: "Oswald", sans-serif;
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--gold);
+        white-space: nowrap;
+      }
+      .badge {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        padding: 4px 9px;
+        border-radius: 4px;
+      }
+      .badge.won {
+        background: var(--win);
+        color: #d9f0e1;
+      }
+      .badge.lost {
+        background: var(--loss);
+        color: #f6dcd7;
+      }
+      .settle {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .settle button {
+        flex: 1;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 10px 0;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+      }
+      .settle .btn-won:active {
+        border-color: var(--win);
+        color: #5cc989;
+      }
+      .settle .btn-lost:active {
+        border-color: var(--loss);
+        color: #e06a5a;
+      }
+      .empty {
+        color: var(--ink-dim);
+        font-size: 13px;
+      }
+
+      /* ===== LEADERBOARD ===== */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--felt-800);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      thead th {
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+        text-align: left;
+        padding: 11px 12px;
+        border-bottom: 1px solid var(--line);
+        font-weight: 500;
+      }
+      tbody td {
+        padding: 12px;
+        font-size: 14px;
+      }
+      tbody tr.me {
+        background: rgba(232, 185, 59, 0.07);
+      }
+      td.pos {
+        font-family: "Oswald", sans-serif;
+        font-size: 16px;
+        color: var(--gold);
+        width: 40px;
+      }
+      td.pts {
+        font-family: "Oswald", sans-serif;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--gold);
+      }
+      .right {
+        text-align: right;
+      }
+      .lb-note {
+        font-size: 12.5px;
+        color: var(--ink-dim);
+        margin-top: 12px;
+      }
+
+      /* ===== DONJI MENI =====
+     Fiksiran na dno ekrana; na desktopu prati širinu .shell kolone. */
+      nav.bottom {
+        position: fixed;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100%;
+        max-width: 480px;
+        height: var(--nav-h);
+        background: var(--felt-800);
+        border-top: 1px solid var(--line);
+        display: flex;
+        z-index: 30;
+        padding-bottom: env(safe-area-inset-bottom); /* iPhone donja crta */
+      }
+      nav.bottom.hidden {
+        display: none;
+      }
+      .nav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        font-size: 10.5px;
+        letter-spacing: 0.04em;
+        color: var(--ink-dim);
+      }
+      .nav-item svg {
+        width: 22px;
+        height: 22px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .nav-item.active {
+        color: var(--gold);
+      }
+
+      /* ===== TOAST ===== */
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: calc(var(--nav-h) + 16px);
+        transform: translateX(-50%) translateY(20px);
+        background: var(--paper);
+        color: var(--paper-ink);
+        font-size: 13px;
+        font-weight: 500;
+        padding: 11px 20px;
+        border-radius: 8px;
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 0.25s,
+          transform 0.25s;
+        z-index: 40;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+        white-space: nowrap;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <!-- Header — sakriven samo na loginu -->
+      <header id="app-header" class="hidden">
+        <div class="header-inner">
+          <div class="brand">
+            <span class="eyebrow" id="header-eyebrow">Tipster liga</span>
+            <h1 id="header-title">—</h1>
+          </div>
+          <div class="spacer"></div>
+          <div class="chip gold">
+            <span class="label">Balans</span>
+            <span class="value" id="balance-chip">—</span>
+          </div>
+          <div class="chip">
+            <span class="label">Bodovi</span>
+            <span class="value" id="points-chip">—</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- ═══════ LOGIN ═══════ -->
+      <section class="screen" id="screen-login">
+        <div class="content">
+          <div class="login-box">
+            <span class="eyebrow">Tipster liga</span>
+            <h1>Dobrodošao</h1>
+            <input
+              id="login-name"
+              type="text"
+              placeholder="Tvoje ime"
+              autocomplete="off"
+            />
+            <button class="btn-gold" id="login-btn">Uđi</button>
+            <p class="login-note">
+              Za sad bez lozinke — prava prijava stiže s backendom.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════ LIGE (početna nakon logina) ═══════ -->
+      <section class="screen" id="screen-lige">
+        <div class="content">
+          <h2 class="screen-title">Moje lige</h2>
+          <button class="league-card" id="league-open">
+            <span class="lc-info">
+              <span class="lc-name" style="display: block">Ekipa iz kraja</span>
+              <span class="lc-sub" style="display: block" id="league-sub"
+                >1 igrač · liga traje</span
+              >
+            </span>
+            <span class="arrow">→</span>
+          </button>
+          <button class="btn-ghost" id="league-new">+ Napravi novu ligu</button>
+          <button class="logout" id="logout-btn">Odjavi se</button>
+        </div>
+      </section>
+
+      <!-- ═══════ NOVI TIP ═══════ -->
+      <section class="screen" id="screen-novi">
+        <div class="content">
+          <div class="ticket">
+            <div class="ticket-head">
+              <div class="t-title">NOVI TIP</div>
+              <div class="t-sub" id="ticket-date"></div>
+            </div>
+            <div class="ticket-body">
+              <div class="field">
+                <label for="f-match">PAR / UTAKMICA</label>
+                <input
+                  id="f-match"
+                  type="text"
+                  placeholder="npr. Real Madrid — Barcelona"
+                />
+              </div>
+              <div class="field">
+                <label for="f-pick">TIP</label>
+                <input
+                  id="f-pick"
+                  type="text"
+                  placeholder="npr. 1, 0-2 gola, GG..."
+                />
+              </div>
+              <div class="row2">
+                <div class="field">
+                  <label for="f-odds">KVOTA</label>
+                  <input
+                    id="f-odds"
+                    type="number"
+                    step="0.01"
+                    min="1.01"
+                    inputmode="decimal"
+                    placeholder="2.00"
+                  />
+                </div>
+                <div class="field">
+                  <label for="f-stake">ULOG (tk)</label>
+                  <input
+                    id="f-stake"
+                    type="number"
+                    min="1"
+                    inputmode="numeric"
+                    placeholder="10"
+                  />
+                </div>
+              </div>
+              <div class="calc">
+                <span>Mogući dobitak</span>
+                <span class="win-val" id="win-val">0 bod.</span>
+              </div>
+            </div>
+            <div class="err" id="form-err" role="alert"></div>
+            <button class="pay" id="pay-btn" disabled>Uplati tip</button>
+            <div class="barcode" aria-hidden="true"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════ MOJI TIPOVI ═══════ -->
+      <section class="screen" id="screen-tipovi">
+        <div class="content">
+          <h2 class="screen-title">Moji tipovi</h2>
+          <div id="tip-list"></div>
+        </div>
+      </section>
+
+      <!-- ═══════ LEADERBOARD ═══════ -->
+      <section class="screen" id="screen-tabela">
+        <div class="content">
+          <h2 class="screen-title">Leaderboard</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Igrač</th>
+                <th class="right">Bodovi</th>
+                <th class="right">Balans</th>
+              </tr>
+            </thead>
+            <tbody id="lb-body"></tbody>
+          </table>
+          <p class="lb-note">
+            Za sad si sam — drugovi stižu kad dodamo više igrača.
+          </p>
+        </div>
+      </section>
+
+      <!-- ═══════ DONJI MENI (vidljiv unutar lige) ═══════ -->
+      <nav class="bottom hidden" id="bottom-nav" aria-label="Glavna navigacija">
+        <button class="nav-item" data-go="lige" aria-label="Lige">
+          <svg viewBox="0 0 24 24">
+            <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z" />
+            <path d="M7 6H4a3 3 0 0 0 3 5M17 6h3a3 3 0 0 1-3 5" />
+          </svg>
+          Lige
+        </button>
+        <button class="nav-item" data-go="novi" aria-label="Novi tip">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v8M8 12h8" />
+          </svg>
+          Novi tip
+        </button>
+        <button class="nav-item" data-go="tipovi" aria-label="Moji tipovi">
+          <svg viewBox="0 0 24 24">
+            <path d="M5 4h14v16H5z" />
+            <path d="M9 8h6M9 12h6M9 16h4" />
+          </svg>
+          Tipovi
+        </button>
+        <button class="nav-item" data-go="tabela" aria-label="Leaderboard">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 20V10M10 20V4M16 20v-7M20 20H4" />
+          </svg>
+          Tabela
+        </button>
+      </nav>
+
+      <div class="toast" id="toast" role="status"></div>
+    </div>
+
+    <script>
+      /* =====================================================
+   STANJE — localStorage; kasnije ovo mijenja backend.
+   ===================================================== */
+      const START_BALANCE = 500;
+
+      function loadState() {
+        const saved = localStorage.getItem("tipster-liga");
+        if (saved) return JSON.parse(saved);
+        return { user: null, balance: START_BALANCE, points: 0, tips: [] };
+      }
+      function saveState() {
+        localStorage.setItem("tipster-liga", JSON.stringify(state));
+      }
+      const state = loadState();
+      const LEAGUE_NAME = "Ekipa iz kraja"; // za sad jedna, hardkodovana liga
+
+      const fmt = (n) =>
+        Number(n).toLocaleString("sr-Latn", { maximumFractionDigits: 2 });
+      const $ = (id) => document.getElementById(id);
+
+      /* =====================================================
+   NAVIGACIJA
+   - showScreen(ime) pokazuje jedan ekran
+   - donji meni je vidljiv samo unutar lige
+     (novi / tipovi / tabela), ne na loginu i listi liga
+   ===================================================== */
+      const IN_LEAGUE = ["novi", "tipovi", "tabela"];
+
+      function showScreen(name) {
+        document
+          .querySelectorAll(".screen")
+          .forEach((s) => s.classList.remove("visible"));
+        $("screen-" + name).classList.add("visible");
+
+        $("app-header").classList.toggle("hidden", name === "login");
+        $("bottom-nav").classList.toggle("hidden", !IN_LEAGUE.includes(name));
+
+        // označi aktivnu stavku u donjem meniju
+        document
+          .querySelectorAll(".nav-item")
+          .forEach((item) =>
+            item.classList.toggle("active", item.dataset.go === name),
+          );
+
+        // header: na listi liga piše tvoje ime, unutar lige ime lige
+        if (name === "lige") {
+          $("header-eyebrow").textContent = "Tipster liga";
+          $("header-title").textContent = state.user || "—";
+        } else if (IN_LEAGUE.includes(name)) {
+          $("header-eyebrow").textContent = state.user || "";
+          $("header-title").textContent = LEAGUE_NAME;
+        }
+        renderAll();
+      }
+      document
+        .querySelectorAll("[data-go]")
+        .forEach((btn) =>
+          btn.addEventListener("click", () => showScreen(btn.dataset.go)),
+        );
+
+      /* ===== LOGIN → vodi pravo na lige ===== */
+      $("login-btn").addEventListener("click", () => {
+        const name = $("login-name").value.trim();
+        if (!name) {
+          $("login-name").focus();
+          return;
+        }
+        state.user = name;
+        saveState();
+        showScreen("lige");
+      });
+      $("login-name").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") $("login-btn").click();
+      });
+      $("logout-btn").addEventListener("click", () => {
+        state.user = null;
+        saveState();
+        showScreen("login");
+      });
+
+      /* ===== LIGE ===== */
+      $("league-open").addEventListener("click", () => showScreen("tipovi"));
+      $("league-new").addEventListener("click", () =>
+        showToast("Kreiranje lige stiže s više igrača."),
+      );
+
+      /* ===== HEADER ===== */
+      function renderHeader() {
+        $("balance-chip").textContent = fmt(state.balance);
+        $("points-chip").textContent = fmt(state.points);
+        const active = state.tips.filter((t) => t.status === "active").length;
+        $("league-sub").textContent = active
+          ? `1 igrač · ${active} aktivnih tipova`
+          : "1 igrač · liga traje";
+      }
+
+      /* ===== FORMA ZA TIP ===== */
+      const fMatch = $("f-match"),
+        fPick = $("f-pick"),
+        fOdds = $("f-odds"),
+        fStake = $("f-stake");
+
+      $("ticket-date").textContent = new Date().toLocaleDateString("sr-Latn");
+
+      function validate() {
+        const odds = parseFloat(fOdds.value);
+        const stake = parseInt(fStake.value, 10);
+        let msg = "";
+        if (!fMatch.value.trim()) msg = "Upiši par.";
+        else if (!fPick.value.trim()) msg = "Upiši tip.";
+        else if (!odds || odds < 1.01) msg = "Kvota mora biti bar 1.01.";
+        else if (!stake || stake < 1) msg = "Minimalan ulog je 1 token.";
+        else if (stake > state.balance)
+          msg = "Nemaš dovoljno tokena na balansu.";
+
+        const win = odds >= 1.01 && stake >= 1 ? stake * odds : 0;
+        $("win-val").textContent = fmt(win) + " bod.";
+        $("form-err").textContent = msg;
+        $("pay-btn").disabled = !!msg;
+        return !msg;
+      }
+      [fMatch, fPick, fOdds, fStake].forEach((el) =>
+        el.addEventListener("input", validate),
+      );
+
+      $("pay-btn").addEventListener("click", () => {
+        if (!validate()) return;
+        const stake = parseInt(fStake.value, 10);
+        state.balance -= stake;
+        state.tips.unshift({
+          id: Date.now(),
+          match: fMatch.value.trim(),
+          pick: fPick.value.trim(),
+          odds: parseFloat(fOdds.value),
+          stake,
+          status: "active",
+        });
+        saveState();
+        fMatch.value = fPick.value = fOdds.value = fStake.value = "";
+        showToast("Tip uplaćen. Srećno!");
+        showScreen("tipovi");
+      });
+
+      /* ===== MOJI TIPOVI ===== */
+      function renderTips() {
+        const list = $("tip-list");
+        if (!state.tips.length) {
+          list.innerHTML =
+            "<p class='empty'>Još nemaš tipova. Klikni Novi tip u meniju.</p>";
+          return;
+        }
+        list.innerHTML = state.tips
+          .map(
+            (t) => `
+    <div class="tip-card">
+      <div class="top-row">
+        <div class="info">
+          <div class="teams">${t.match}</div>
+          <div class="detail">Tip: ${t.pick} · Kvota ${t.odds.toFixed(2)} · Ulog ${t.stake} tk</div>
+        </div>
+        ${
+          t.status === "active"
+            ? `<span class="win">${fmt(t.stake * t.odds)} bod.</span>`
+            : `<span class="badge ${t.status}">${t.status === "won" ? "PROŠAO" : "PAO"}</span>`
+        }
+      </div>
+      ${
+        t.status === "active"
+          ? `
+        <div class="settle">
+          <button class="btn-won"  data-id="${t.id}" data-res="won">Prošao</button>
+          <button class="btn-lost" data-id="${t.id}" data-res="lost">Pao</button>
+        </div>`
+          : ""
+      }
+    </div>`,
+          )
+          .join("");
+
+        list.querySelectorAll(".settle button").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const tip = state.tips.find((t) => t.id === Number(btn.dataset.id));
+            tip.status = btn.dataset.res;
+            if (tip.status === "won") state.points += tip.stake * tip.odds;
+            saveState();
+            renderAll();
+          });
+        });
+      }
+
+      /* ===== LEADERBOARD ===== */
+      function renderLeaderboard() {
+        $("lb-body").innerHTML = `
+    <tr class="me">
+      <td class="pos">1</td>
+      <td>${state.user || "—"} (ti)</td>
+      <td class="pts right">${fmt(state.points)}</td>
+      <td class="right">${fmt(state.balance)}</td>
+    </tr>`;
+      }
+
+      /* ===== TOAST ===== */
+      let toastTimer;
+      function showToast(msg) {
+        const t = $("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+      }
+
+      function renderAll() {
+        renderHeader();
+        renderTips();
+        renderLeaderboard();
+        validate();
+      }
+
+      /* ===== START ===== */
+      showScreen(state.user ? "lige" : "login");
+    </script>
+  </body>
+</html>
