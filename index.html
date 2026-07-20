@@ -133,6 +133,9 @@
       .chip.gold .value {
         color: var(--gold);
       }
+      .chip.hidden {
+        display: none;
+      }
 
       .content {
         padding: 18px 16px calc(var(--nav-h) + 28px);
@@ -607,11 +610,11 @@
             <h1 id="header-title">—</h1>
           </div>
           <div class="spacer"></div>
-          <div class="chip gold">
+          <div class="chip gold league-only hidden" id="chip-balance">
             <span class="label">Balans</span>
             <span class="value" id="balance-chip">—</span>
           </div>
-          <div class="chip">
+          <div class="chip league-only hidden" id="chip-points">
             <span class="label">Bodovi</span>
             <span class="value" id="points-chip">—</span>
           </div>
@@ -1206,6 +1209,8 @@
 
         $("app-header").classList.toggle("hidden", name === "login");
         $("bottom-nav").classList.toggle("hidden", !IN_LEAGUE.includes(name));
+        $("chip-balance").classList.toggle("hidden", !IN_LEAGUE.includes(name));
+        $("chip-points").classList.toggle("hidden", !IN_LEAGUE.includes(name));
         document
           .querySelector(".nav-item.admin-only")
           .classList.toggle("hidden", !isAdmin());
