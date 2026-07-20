@@ -255,6 +255,17 @@
         font-size: 20px;
         color: var(--ink-dim);
       }
+      .lc-tag {
+        font-size: 9.5px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        color: var(--gold);
+        border: 1px solid var(--gold);
+        border-radius: 4px;
+        padding: 2px 6px;
+        margin-left: 8px;
+        vertical-align: middle;
+      }
       .btn-ghost {
         display: block;
         width: 100%;
@@ -647,17 +658,71 @@
       <section class="screen" id="screen-lige">
         <div class="content">
           <h2 class="screen-title">Moje lige</h2>
-          <button class="league-card" id="league-open">
-            <span class="lc-info">
-              <span class="lc-name" style="display: block">Ekipa iz kraja</span>
-              <span class="lc-sub" style="display: block" id="league-sub"
-                >liga traje</span
-              >
-            </span>
-            <span class="arrow">→</span>
+          <div id="league-list"><p class="empty">Učitavam...</p></div>
+          <button class="btn-ghost" data-go="liga-nova">+ Napravi ligu</button>
+          <button
+            class="btn-ghost"
+            data-go="liga-pridruzi"
+            style="margin-top: 10px"
+          >
+            + Pridruži se ligi
           </button>
-          <button class="btn-ghost" id="league-new">+ Napravi novu ligu</button>
           <button class="logout" id="logout-btn">Odjavi se</button>
+        </div>
+      </section>
+
+      <!-- ═══════ NOVA LIGA ═══════ -->
+      <section class="screen" id="screen-liga-nova">
+        <div class="content">
+          <button class="back" data-go="lige">← Lige</button>
+          <h2 class="screen-title">Napravi ligu</h2>
+          <div class="ticket">
+            <div class="ticket-head">
+              <div class="t-title">NOVA LIGA</div>
+              <div class="t-sub">Ti postaješ admin ove lige</div>
+            </div>
+            <div class="ticket-body">
+              <div class="field">
+                <label for="new-league-name">IME LIGE</label>
+                <input
+                  id="new-league-name"
+                  type="text"
+                  placeholder="npr. Ekipa iz kraja"
+                />
+              </div>
+            </div>
+            <div class="err" id="new-league-err" role="alert"></div>
+            <button class="pay" id="new-league-btn">Napravi ligu</button>
+            <div class="barcode" aria-hidden="true"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════ PRIDRUŽI SE LIGI ═══════ -->
+      <section class="screen" id="screen-liga-pridruzi">
+        <div class="content">
+          <button class="back" data-go="lige">← Lige</button>
+          <h2 class="screen-title">Pridruži se ligi</h2>
+          <div class="ticket">
+            <div class="ticket-head">
+              <div class="t-title">KOD LIGE</div>
+              <div class="t-sub">Zatraži kod od admina lige</div>
+            </div>
+            <div class="ticket-body">
+              <div class="field">
+                <label for="join-code">KOD ZA PRIDRUŽIVANJE</label>
+                <input
+                  id="join-code"
+                  type="text"
+                  placeholder="npr. 7K2XQP"
+                  style="text-transform: uppercase"
+                />
+              </div>
+            </div>
+            <div class="err" id="join-league-err" role="alert"></div>
+            <button class="pay" id="join-league-btn">Pridruži se</button>
+            <div class="barcode" aria-hidden="true"></div>
+          </div>
         </div>
       </section>
 
@@ -808,19 +873,22 @@
       const SUPABASE_KEY = "sb_publishable_JLKEZOoKEwTEQAnmfLqdkA_lpkdUj6L";
       const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-      /* Admin lige — jedini koji smije potvrditi rezultat tipa.
-   Isti ID mora stajati u SQL policy-ju u bazi (to je prava zaštita;
-   ovo ovdje samo kontroliše šta se prikazuje na ekranu). */
-      const ADMIN_ID = "7674a812-318e-4ef5-a840-d1fae6af8ab1";
-      const isAdmin = () => user && user.id === ADMIN_ID;
-
       const START_BALANCE = 500;
-      const LEAGUE_NAME = "Ekipa iz kraja";
 
       /* Prijavljeni korisnik: { id, name } ili null.
    Sesiju čuva supabase-js sam (preživi refresh). */
       let user = null;
       let allTips = [];
+
+      /* Lige u kojima je korisnik član, i koja je trenutno otvorena.
+   currentLeague se pamti u localStorage da ne moraš svaki put birati. */
+      let myLeagues = [];
+      let currentLeague = null;
+
+      /* Admin lige je onaj ko ju je napravio (leagues.admin_id).
+   Prava zaštita je SQL policy u bazi — ovo ovdje samo krije/prikazuje dugmad. */
+      const isAdmin = () =>
+        user && currentLeague && user.id === currentLeague.admin_id;
 
       const fmt = (n) =>
         Number(n).toLocaleString("sr-Latn", { maximumFractionDigits: 2 });
@@ -829,6 +897,16 @@
       /* Kvota kao tekst da bi telefon prihvatio i zarez i tačku
    (na iPhone-u s domaćim regionom, numerička tastatura nudi zarez) */
       const parseOdds = (str) => parseFloat(String(str).replace(",", "."));
+
+      /* Kratak kod za pridruživanje ligi — bez slova/brojeva koji se lako
+   pomiješaju (0/O, 1/I) */
+      function genInviteCode() {
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        let code = "";
+        for (let i = 0; i < 6; i++)
+          code += chars[Math.floor(Math.random() * chars.length)];
+        return code;
+      }
 
       /* =====================================================
    AUTH — registracija i prijava
@@ -916,16 +994,166 @@
       $("logout-btn").addEventListener("click", async () => {
         await db.auth.signOut();
         user = null;
+        myLeagues = [];
+        currentLeague = null;
         showScreen("login");
       });
 
       /* =====================================================
-   PODACI
+   LIGE — učitavanje, kreiranje, pridruživanje
+   ===================================================== */
+      async function refreshLeagues() {
+        const { data, error } = await db
+          .from("league_members")
+          .select("leagues(id, name, invite_code, admin_id)")
+          .eq("user_id", user.id);
+        if (error) {
+          showToast("Greška: " + error.message);
+          return;
+        }
+        myLeagues = data.map((row) => row.leagues);
+
+        /* pokušaj vratiti posljednju otvorenu ligu (ako si i dalje član) */
+        const savedId = localStorage.getItem("tipster-league-id");
+        if (!currentLeague && savedId) {
+          currentLeague =
+            myLeagues.find((l) => String(l.id) === savedId) || null;
+        }
+        renderLeagueList();
+      }
+
+      function openLeague(league) {
+        currentLeague = league;
+        localStorage.setItem("tipster-league-id", league.id);
+        showScreen("tipovi");
+      }
+
+      function renderLeagueList() {
+        const wrap = $("league-list");
+        if (!myLeagues.length) {
+          wrap.innerHTML =
+            "<p class='empty'>Još nisi ni u jednoj ligi. Napravi je ili se pridruži preko koda.</p>";
+          return;
+        }
+        wrap.innerHTML = myLeagues
+          .map(
+            (l) => `
+    <button class="league-card" data-league-id="${l.id}">
+      <span class="lc-info">
+        <span class="lc-name" style="display:block">
+          ${l.name}${l.admin_id === user.id ? '<span class="lc-tag">ADMIN</span>' : ""}
+        </span>
+        <span class="lc-sub" style="display:block">Kod: ${l.invite_code}</span>
+      </span>
+      <span class="arrow">→</span>
+    </button>`,
+          )
+          .join("");
+
+        wrap.querySelectorAll(".league-card").forEach((card) => {
+          card.addEventListener("click", () => {
+            const league = myLeagues.find(
+              (l) => l.id === Number(card.dataset.leagueId),
+            );
+            openLeague(league);
+          });
+        });
+      }
+
+      $("new-league-btn").addEventListener("click", async () => {
+        const name = $("new-league-name").value.trim();
+        const errEl = $("new-league-err");
+        if (!name) {
+          errEl.textContent = "Upiši ime lige.";
+          return;
+        }
+        errEl.textContent = "";
+        $("new-league-btn").disabled = true;
+
+        /* invite_code mora biti jedinstven — u rijetkom slučaju sudara probaj ponovo */
+        let league, error;
+        for (let i = 0; i < 3; i++) {
+          ({ data: league, error } = await db
+            .from("leagues")
+            .insert({ name, invite_code: genInviteCode() })
+            .select()
+            .single());
+          if (!error) break;
+        }
+        $("new-league-btn").disabled = false;
+        if (error) {
+          errEl.textContent = "Greška: " + error.message;
+          return;
+        }
+
+        const { error: memberErr } = await db
+          .from("league_members")
+          .insert({ league_id: league.id });
+        if (memberErr) {
+          errEl.textContent = "Greška: " + memberErr.message;
+          return;
+        }
+
+        $("new-league-name").value = "";
+        await refreshLeagues();
+        showToast(`Liga napravljena — kod je ${league.invite_code}`);
+        openLeague(league);
+      });
+
+      $("join-league-btn").addEventListener("click", async () => {
+        const code = $("join-code").value.trim().toUpperCase();
+        const errEl = $("join-league-err");
+        if (!code) {
+          errEl.textContent = "Upiši kod.";
+          return;
+        }
+        errEl.textContent = "";
+        $("join-league-btn").disabled = true;
+
+        const { data: league, error } = await db
+          .from("leagues")
+          .select("*")
+          .eq("invite_code", code)
+          .maybeSingle();
+        $("join-league-btn").disabled = false;
+
+        if (error) {
+          errEl.textContent = "Greška: " + error.message;
+          return;
+        }
+        if (!league) {
+          errEl.textContent = "Ne postoji liga s tim kodom.";
+          return;
+        }
+
+        if (!myLeagues.some((l) => l.id === league.id)) {
+          const { error: memberErr } = await db
+            .from("league_members")
+            .insert({ league_id: league.id });
+          if (memberErr) {
+            errEl.textContent = "Greška: " + memberErr.message;
+            return;
+          }
+        }
+        $("join-code").value = "";
+        await refreshLeagues();
+        showToast(`Pridružio si se ligi "${league.name}"`);
+        openLeague(league);
+      });
+
+      /* =====================================================
+   PODACI (tipovi unutar trenutno otvorene lige)
    ===================================================== */
       async function refreshTips() {
+        if (!currentLeague) {
+          allTips = [];
+          renderAll();
+          return;
+        }
         const { data, error } = await db
           .from("tips")
           .select("*")
+          .eq("league_id", currentLeague.id)
           .order("created_at", { ascending: false });
         if (error) {
           showToast("Greška pri učitavanju: " + error.message);
@@ -972,11 +1200,14 @@
           $("header-title").textContent = user ? user.name : "—";
         } else if (IN_LEAGUE.includes(name)) {
           $("header-eyebrow").textContent = user ? user.name : "";
-          $("header-title").textContent = LEAGUE_NAME;
+          $("header-title").textContent = currentLeague
+            ? currentLeague.name
+            : "—";
         }
 
         renderAll();
-        if (name !== "login") refreshTips();
+        if (name === "lige" && user) refreshLeagues();
+        if (IN_LEAGUE.includes(name) && currentLeague) refreshTips();
       }
       document
         .querySelectorAll("[data-go]")
@@ -984,23 +1215,12 @@
           btn.addEventListener("click", () => showScreen(btn.dataset.go)),
         );
 
-      /* ===== LIGE ===== */
-      $("league-open").addEventListener("click", () => showScreen("tipovi"));
-      $("league-new").addEventListener("click", () =>
-        showToast("Kreiranje lige stiže kasnije."),
-      );
-
       /* ===== HEADER ===== */
       function renderHeader() {
         if (!user) return;
         const me = statsFor(user.name);
         $("balance-chip").textContent = fmt(me.balance);
         $("points-chip").textContent = fmt(me.points);
-
-        const players = new Set(allTips.map((t) => t.player_name)).size;
-        const active = allTips.filter((t) => t.status === "active").length;
-        $("league-sub").textContent =
-          `${players || 1} ${players === 1 ? "igrač" : "igrača"} · ${active} aktivnih tipova`;
       }
 
       /* ===== FORMA ZA TIP ===== */
@@ -1034,11 +1254,16 @@
 
       $("pay-btn").addEventListener("click", async () => {
         if (!validate()) return;
+        if (!currentLeague) {
+          showToast("Prvo izaberi ligu.");
+          return;
+        }
         $("pay-btn").disabled = true;
 
         /* user_id popunjava baza sama (default auth.uid()) —
      zato je nemoguće uplatiti tip u tuđe ime */
         const { error } = await db.from("tips").insert({
+          league_id: currentLeague.id,
           player_name: user.name,
           match_name: fMatch.value.trim(),
           pick: fPick.value.trim(),
