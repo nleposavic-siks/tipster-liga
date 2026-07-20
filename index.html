@@ -690,6 +690,16 @@
                   placeholder="npr. Ekipa iz kraja"
                 />
               </div>
+              <div class="field">
+                <label for="new-league-balance">STARTNI TOKENI PO IGRAČU</label>
+                <input
+                  id="new-league-balance"
+                  type="number"
+                  min="1"
+                  inputmode="numeric"
+                  placeholder="500"
+                />
+              </div>
             </div>
             <div class="err" id="new-league-err" role="alert"></div>
             <button class="pay" id="new-league-btn">Napravi ligu</button>
@@ -873,8 +883,6 @@
       const SUPABASE_KEY = "sb_publishable_JLKEZOoKEwTEQAnmfLqdkA_lpkdUj6L";
       const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-      const START_BALANCE = 500;
-
       /* Prijavljeni korisnik: { id, name } ili null.
    Sesiju čuva supabase-js sam (preživi refresh). */
       let user = null;
@@ -1043,7 +1051,7 @@
         <span class="lc-name" style="display:block">
           ${l.name}${l.admin_id === user.id ? '<span class="lc-tag">ADMIN</span>' : ""}
         </span>
-        <span class="lc-sub" style="display:block">Kod: ${l.invite_code}</span>
+        <span class="lc-sub" style="display:block">Kod: ${l.invite_code} · Start: ${l.starting_balance} tk</span>
       </span>
       <span class="arrow">→</span>
     </button>`,
@@ -1063,8 +1071,15 @@
       $("new-league-btn").addEventListener("click", async () => {
         const name = $("new-league-name").value.trim();
         const errEl = $("new-league-err");
+        const balanceRaw = $("new-league-balance").value.trim();
+        const startingBalance = balanceRaw ? parseInt(balanceRaw, 10) : 500;
+
         if (!name) {
           errEl.textContent = "Upiši ime lige.";
+          return;
+        }
+        if (!startingBalance || startingBalance < 1) {
+          errEl.textContent = "Startni tokeni moraju biti bar 1.";
           return;
         }
         errEl.textContent = "";
@@ -1075,7 +1090,11 @@
         for (let i = 0; i < 3; i++) {
           ({ data: league, error } = await db
             .from("leagues")
-            .insert({ name, invite_code: genInviteCode() })
+            .insert({
+              name,
+              invite_code: genInviteCode(),
+              starting_balance: startingBalance,
+            })
             .select()
             .single());
           if (!error) break;
@@ -1095,6 +1114,7 @@
         }
 
         $("new-league-name").value = "";
+        $("new-league-balance").value = "";
         await refreshLeagues();
         showToast(`Liga napravljena — kod je ${league.invite_code}`);
         openLeague(league);
@@ -1166,10 +1186,11 @@
       function statsFor(name) {
         const mine = allTips.filter((t) => t.player_name === name);
         const spent = mine.reduce((s, t) => s + t.stake, 0);
+        const start = currentLeague ? currentLeague.starting_balance : 0;
         const points = mine
           .filter((t) => t.status === "won")
           .reduce((s, t) => s + t.stake * Number(t.odds), 0);
-        return { balance: START_BALANCE - spent, points };
+        return { balance: start - spent, points };
       }
 
       /* =====================================================
