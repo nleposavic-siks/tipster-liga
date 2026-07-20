@@ -437,6 +437,10 @@
         background: var(--loss);
         color: #f6dcd7;
       }
+      .badge.active {
+        background: var(--felt-700);
+        color: var(--ink-dim);
+      }
       .settle {
         display: flex;
         gap: 8px;
@@ -744,6 +748,14 @@
         </div>
       </section>
 
+      <!-- ═══════ SUDI TIPOVE (samo admin) ═══════ -->
+      <section class="screen" id="screen-sudi">
+        <div class="content">
+          <h2 class="screen-title">Sudi tipove</h2>
+          <div id="admin-list"><p class="empty">Učitavam...</p></div>
+        </div>
+      </section>
+
       <!-- ═══════ DONJI MENI ═══════ -->
       <nav class="bottom hidden" id="bottom-nav" aria-label="Glavna navigacija">
         <button class="nav-item" data-go="lige" aria-label="Lige">
@@ -773,6 +785,18 @@
           </svg>
           Tabela
         </button>
+        <button
+          class="nav-item admin-only hidden"
+          data-go="sudi"
+          aria-label="Sudi tipove"
+        >
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M12 3l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6-4.6-4.1 6.1-.6z"
+            />
+          </svg>
+          Sudi
+        </button>
       </nav>
 
       <div class="toast" id="toast" role="status"></div>
@@ -785,6 +809,12 @@
       const SUPABASE_URL = "https://dmgbddfyjucfnnlhjmbm.supabase.co";
       const SUPABASE_KEY = "sb_publishable_JLKEZOoKEwTEQAnmfLqdkA_lpkdUj6L";
       const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      /* Admin lige — jedini koji smije potvrditi rezultat tipa.
+   Isti ID mora stajati u SQL policy-ju u bazi (to je prava zaštita;
+   ovo ovdje samo kontroliše šta se prikazuje na ekranu). */
+      const ADMIN_ID = "7674a812-318e-4ef5-a840-d1fae6af8ab1";
+      const isAdmin = () => user && user.id === ADMIN_ID;
 
       const START_BALANCE = 500;
       const LEAGUE_NAME = "Ekipa iz kraja";
@@ -915,7 +945,7 @@
       /* =====================================================
    NAVIGACIJA
    ===================================================== */
-      const IN_LEAGUE = ["novi", "tipovi", "tabela"];
+      const IN_LEAGUE = ["novi", "tipovi", "tabela", "sudi"];
 
       function showScreen(name) {
         document
@@ -925,6 +955,9 @@
 
         $("app-header").classList.toggle("hidden", name === "login");
         $("bottom-nav").classList.toggle("hidden", !IN_LEAGUE.includes(name));
+        document
+          .querySelector(".nav-item.admin-only")
+          .classList.toggle("hidden", !isAdmin());
 
         document
           .querySelectorAll(".nav-item")
@@ -1057,24 +1090,54 @@
         </div>
         ${
           t.status === "active"
-            ? `<span class="win">${fmt(t.stake * Number(t.odds))} bod.</span>`
+            ? `<span class="badge active">ČEKA SUDIJU</span>`
             : `<span class="badge ${t.status}">${t.status === "won" ? "PROŠAO" : "PAO"}</span>`
         }
       </div>
-      ${
-        t.status === "active" && mine
-          ? `
-        <div class="settle">
-          <button class="btn-won"  data-id="${t.id}" data-res="won">Prošao</button>
-          <button class="btn-lost" data-id="${t.id}" data-res="lost">Pao</button>
-        </div>`
-          : ""
-      }
     </div>`;
           })
           .join("");
+      }
 
-        list.querySelectorAll(".settle button").forEach((btn) => {
+      /* ===== SUDI TIPOVE (samo admin) =====
+   Isti prikaz kao Tipovi, ali sa Prošao/Pao dugmadima na SVAKOM
+   aktivnom tipu — ne samo svojim. Baza (RLS policy) i dalje
+   provjerava da je uista admin taj ko šalje update, ovo je samo UI. */
+      function renderAdminList() {
+        const wrap = $("admin-list");
+        if (!isAdmin()) {
+          wrap.innerHTML =
+            "<p class='empty'>Ovaj ekran vidi samo admin lige.</p>";
+          return;
+        }
+        const active = allTips.filter((t) => t.status === "active");
+        if (!active.length) {
+          wrap.innerHTML =
+            "<p class='empty'>Nema tipova koji čekaju sudjenje.</p>";
+          return;
+        }
+        wrap.innerHTML = active
+          .map(
+            (t) => `
+    <div class="tip-card">
+      <div class="player">${t.player_name}</div>
+      <div class="top-row">
+        <div class="info">
+          <div class="teams">${t.match_name}</div>
+          <div class="detail">Tip: ${t.pick} · Kvota ${Number(t.odds).toFixed(2)} · Ulog ${t.stake} tk</div>
+          <div class="detail time">Uplaćeno: ${fmtTime(t.created_at)}</div>
+        </div>
+        <span class="win">${fmt(t.stake * Number(t.odds))} bod.</span>
+      </div>
+      <div class="settle">
+        <button class="btn-won"  data-id="${t.id}" data-res="won">Prošao</button>
+        <button class="btn-lost" data-id="${t.id}" data-res="lost">Pao</button>
+      </div>
+    </div>`,
+          )
+          .join("");
+
+        wrap.querySelectorAll(".settle button").forEach((btn) => {
           btn.addEventListener("click", async () => {
             const { error } = await db
               .from("tips")
@@ -1128,6 +1191,7 @@
         renderHeader();
         renderTips();
         renderLeaderboard();
+        renderAdminList();
         validate();
       }
 
