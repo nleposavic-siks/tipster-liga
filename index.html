@@ -10,9 +10,9 @@
       href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap"
       rel="stylesheet"
     />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-      /* ===== BOJE I OSNOVA (mobile first: sve je pisano za telefon,
-     na desktopu se aplikacija samo centrira kao uska kolona) ===== */
+      /* ===== BOJE I OSNOVA (mobile first) ===== */
       :root {
         --felt-900: #0b1a12;
         --felt-800: #10241a;
@@ -26,7 +26,7 @@
         --paper-dim: #7b7768;
         --win: #1e6e42;
         --loss: #9a392c;
-        --nav-h: 64px; /* visina donjeg menija */
+        --nav-h: 64px;
       }
       * {
         box-sizing: border-box;
@@ -42,7 +42,6 @@
         background: var(--felt-900);
         color: var(--ink);
       }
-      /* na širim ekranima aplikacija ostaje uska kolona u sredini */
       .shell {
         max-width: 480px;
         margin: 0 auto;
@@ -126,7 +125,6 @@
         color: var(--gold);
       }
 
-      /* sadržaj: padding dolje da ga donji meni ne prekrije */
       .content {
         padding: 18px 16px calc(var(--nav-h) + 28px);
       }
@@ -185,6 +183,7 @@
         font-size: 12px;
         color: var(--ink-dim);
         margin-top: 14px;
+        line-height: 1.5;
       }
 
       /* ===== LIGE ===== */
@@ -240,10 +239,6 @@
         font-size: 14px;
         color: var(--ink-dim);
       }
-      .btn-ghost:active {
-        border-color: var(--gold);
-        color: var(--ink);
-      }
       .logout {
         display: block;
         margin: 30px auto 0;
@@ -253,7 +248,7 @@
         text-underline-offset: 3px;
       }
 
-      /* ===== TIKET FORMA ===== */
+      /* ===== TIKET ===== */
       .ticket {
         background: var(--paper);
         color: var(--paper-ink);
@@ -358,6 +353,19 @@
         border-radius: 12px;
         padding: 14px;
         margin-bottom: 10px;
+      }
+      .tip-card.mine {
+        border-color: rgba(232, 185, 59, 0.5);
+      }
+      .tip-card .player {
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+        margin-bottom: 6px;
+      }
+      .tip-card.mine .player {
+        color: var(--gold);
       }
       .tip-card .top-row {
         display: flex;
@@ -472,8 +480,7 @@
         margin-top: 12px;
       }
 
-      /* ===== DONJI MENI =====
-     Fiksiran na dno ekrana; na desktopu prati širinu .shell kolone. */
+      /* ===== DONJI MENI ===== */
       nav.bottom {
         position: fixed;
         bottom: 0;
@@ -486,7 +493,7 @@
         border-top: 1px solid var(--line);
         display: flex;
         z-index: 30;
-        padding-bottom: env(safe-area-inset-bottom); /* iPhone donja crta */
+        padding-bottom: env(safe-area-inset-bottom);
       }
       nav.bottom.hidden {
         display: none;
@@ -534,7 +541,6 @@
           transform 0.25s;
         z-index: 40;
         box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
-        white-space: nowrap;
       }
       .toast.show {
         opacity: 1;
@@ -549,7 +555,6 @@
   </head>
   <body>
     <div class="shell">
-      <!-- Header — sakriven samo na loginu -->
       <header id="app-header" class="hidden">
         <div class="header-inner">
           <div class="brand">
@@ -582,13 +587,13 @@
             />
             <button class="btn-gold" id="login-btn">Uđi</button>
             <p class="login-note">
-              Za sad bez lozinke — prava prijava stiže s backendom.
+              Upiši isto ime svaki put — ono je za sad tvoj identitet u ligi.
             </p>
           </div>
         </div>
       </section>
 
-      <!-- ═══════ LIGE (početna nakon logina) ═══════ -->
+      <!-- ═══════ LIGE ═══════ -->
       <section class="screen" id="screen-lige">
         <div class="content">
           <h2 class="screen-title">Moje lige</h2>
@@ -596,7 +601,7 @@
             <span class="lc-info">
               <span class="lc-name" style="display: block">Ekipa iz kraja</span>
               <span class="lc-sub" style="display: block" id="league-sub"
-                >1 igrač · liga traje</span
+                >liga traje</span
               >
             </span>
             <span class="arrow">→</span>
@@ -666,11 +671,11 @@
         </div>
       </section>
 
-      <!-- ═══════ MOJI TIPOVI ═══════ -->
+      <!-- ═══════ TIPOVI (svi igrači) ═══════ -->
       <section class="screen" id="screen-tipovi">
         <div class="content">
-          <h2 class="screen-title">Moji tipovi</h2>
-          <div id="tip-list"></div>
+          <h2 class="screen-title">Tipovi lige</h2>
+          <div id="tip-list"><p class="empty">Učitavam...</p></div>
         </div>
       </section>
 
@@ -689,13 +694,11 @@
             </thead>
             <tbody id="lb-body"></tbody>
           </table>
-          <p class="lb-note">
-            Za sad si sam — drugovi stižu kad dodamo više igrača.
-          </p>
+          <p class="lb-note">Na tabeli je svako ko je odigrao bar jedan tip.</p>
         </div>
       </section>
 
-      <!-- ═══════ DONJI MENI (vidljiv unutar lige) ═══════ -->
+      <!-- ═══════ DONJI MENI ═══════ -->
       <nav class="bottom hidden" id="bottom-nav" aria-label="Glavna navigacija">
         <button class="nav-item" data-go="lige" aria-label="Lige">
           <svg viewBox="0 0 24 24">
@@ -711,7 +714,7 @@
           </svg>
           Novi tip
         </button>
-        <button class="nav-item" data-go="tipovi" aria-label="Moji tipovi">
+        <button class="nav-item" data-go="tipovi" aria-label="Tipovi">
           <svg viewBox="0 0 24 24">
             <path d="M5 4h14v16H5z" />
             <path d="M9 8h6M9 12h6M9 16h4" />
@@ -731,30 +734,56 @@
 
     <script>
       /* =====================================================
-   STANJE — localStorage; kasnije ovo mijenja backend.
+   SUPABASE — zajednička baza za sve igrače.
+   Publishable key je javan po dizajnu; podatke
+   štite policy pravila u bazi, ne tajnost ključa.
    ===================================================== */
-      const START_BALANCE = 500;
+      const SUPABASE_URL = "https://dmgbddfyjucfnnlhjmbm.supabase.co";
+      const SUPABASE_KEY = "sb_publishable_JLKEZOoKEwTEQAnmfLqdkA_lpkdUj6L";
+      const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-      function loadState() {
-        const saved = localStorage.getItem("tipster-liga");
-        if (saved) return JSON.parse(saved);
-        return { user: null, balance: START_BALANCE, points: 0, tips: [] };
-      }
-      function saveState() {
-        localStorage.setItem("tipster-liga", JSON.stringify(state));
-      }
-      const state = loadState();
-      const LEAGUE_NAME = "Ekipa iz kraja"; // za sad jedna, hardkodovana liga
+      const START_BALANCE = 500;
+      const LEAGUE_NAME = "Ekipa iz kraja";
+
+      /* Lokalno se čuva SAMO tvoje ime — svi tipovi žive u bazi. */
+      let user = localStorage.getItem("tipster-user") || null;
+
+      /* Keš svih tipova iz baze; refreshTips() ga puni. */
+      let allTips = [];
 
       const fmt = (n) =>
         Number(n).toLocaleString("sr-Latn", { maximumFractionDigits: 2 });
       const $ = (id) => document.getElementById(id);
 
       /* =====================================================
+   PODACI
+   ===================================================== */
+      async function refreshTips() {
+        const { data, error } = await db
+          .from("tips")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (error) {
+          showToast("Greška pri učitavanju: " + error.message);
+          return;
+        }
+        allTips = data;
+        renderAll();
+      }
+
+      /* Balans i bodovi se NE čuvaju posebno — računaju se iz tipova:
+   balans = 500 − svi ulozi; bodovi = zbir (ulog × kvota) prošlih tipova */
+      function statsFor(name) {
+        const mine = allTips.filter((t) => t.player_name === name);
+        const spent = mine.reduce((s, t) => s + t.stake, 0);
+        const points = mine
+          .filter((t) => t.status === "won")
+          .reduce((s, t) => s + t.stake * Number(t.odds), 0);
+        return { balance: START_BALANCE - spent, points };
+      }
+
+      /* =====================================================
    NAVIGACIJA
-   - showScreen(ime) pokazuje jedan ekran
-   - donji meni je vidljiv samo unutar lige
-     (novi / tipovi / tabela), ne na loginu i listi liga
    ===================================================== */
       const IN_LEAGUE = ["novi", "tipovi", "tabela"];
 
@@ -767,22 +796,22 @@
         $("app-header").classList.toggle("hidden", name === "login");
         $("bottom-nav").classList.toggle("hidden", !IN_LEAGUE.includes(name));
 
-        // označi aktivnu stavku u donjem meniju
         document
           .querySelectorAll(".nav-item")
           .forEach((item) =>
             item.classList.toggle("active", item.dataset.go === name),
           );
 
-        // header: na listi liga piše tvoje ime, unutar lige ime lige
         if (name === "lige") {
           $("header-eyebrow").textContent = "Tipster liga";
-          $("header-title").textContent = state.user || "—";
+          $("header-title").textContent = user || "—";
         } else if (IN_LEAGUE.includes(name)) {
-          $("header-eyebrow").textContent = state.user || "";
+          $("header-eyebrow").textContent = user || "";
           $("header-title").textContent = LEAGUE_NAME;
         }
+
         renderAll();
+        if (name !== "login") refreshTips(); // svjež podatak sa servera pri svakom prelasku
       }
       document
         .querySelectorAll("[data-go]")
@@ -790,40 +819,43 @@
           btn.addEventListener("click", () => showScreen(btn.dataset.go)),
         );
 
-      /* ===== LOGIN → vodi pravo na lige ===== */
+      /* ===== LOGIN ===== */
       $("login-btn").addEventListener("click", () => {
         const name = $("login-name").value.trim();
         if (!name) {
           $("login-name").focus();
           return;
         }
-        state.user = name;
-        saveState();
+        user = name;
+        localStorage.setItem("tipster-user", user);
         showScreen("lige");
       });
       $("login-name").addEventListener("keydown", (e) => {
         if (e.key === "Enter") $("login-btn").click();
       });
       $("logout-btn").addEventListener("click", () => {
-        state.user = null;
-        saveState();
+        user = null;
+        localStorage.removeItem("tipster-user");
         showScreen("login");
       });
 
       /* ===== LIGE ===== */
       $("league-open").addEventListener("click", () => showScreen("tipovi"));
       $("league-new").addEventListener("click", () =>
-        showToast("Kreiranje lige stiže s više igrača."),
+        showToast("Kreiranje lige stiže kasnije."),
       );
 
       /* ===== HEADER ===== */
       function renderHeader() {
-        $("balance-chip").textContent = fmt(state.balance);
-        $("points-chip").textContent = fmt(state.points);
-        const active = state.tips.filter((t) => t.status === "active").length;
-        $("league-sub").textContent = active
-          ? `1 igrač · ${active} aktivnih tipova`
-          : "1 igrač · liga traje";
+        if (!user) return;
+        const me = statsFor(user);
+        $("balance-chip").textContent = fmt(me.balance);
+        $("points-chip").textContent = fmt(me.points);
+
+        const players = new Set(allTips.map((t) => t.player_name)).size;
+        const active = allTips.filter((t) => t.status === "active").length;
+        $("league-sub").textContent =
+          `${players || 1} ${players === 1 ? "igrač" : "igrača"} · ${active} aktivnih tipova`;
       }
 
       /* ===== FORMA ZA TIP ===== */
@@ -837,13 +869,13 @@
       function validate() {
         const odds = parseFloat(fOdds.value);
         const stake = parseInt(fStake.value, 10);
+        const balance = user ? statsFor(user).balance : 0;
         let msg = "";
         if (!fMatch.value.trim()) msg = "Upiši par.";
         else if (!fPick.value.trim()) msg = "Upiši tip.";
         else if (!odds || odds < 1.01) msg = "Kvota mora biti bar 1.01.";
         else if (!stake || stake < 1) msg = "Minimalan ulog je 1 token.";
-        else if (stake > state.balance)
-          msg = "Nemaš dovoljno tokena na balansu.";
+        else if (stake > balance) msg = "Nemaš dovoljno tokena na balansu.";
 
         const win = odds >= 1.01 && stake >= 1 ? stake * odds : 0;
         $("win-val").textContent = fmt(win) + " bod.";
@@ -855,49 +887,56 @@
         el.addEventListener("input", validate),
       );
 
-      $("pay-btn").addEventListener("click", () => {
+      $("pay-btn").addEventListener("click", async () => {
         if (!validate()) return;
-        const stake = parseInt(fStake.value, 10);
-        state.balance -= stake;
-        state.tips.unshift({
-          id: Date.now(),
-          match: fMatch.value.trim(),
+        $("pay-btn").disabled = true; // spriječi dupli klik dok upis traje
+
+        const { error } = await db.from("tips").insert({
+          player_name: user,
+          match_name: fMatch.value.trim(),
           pick: fPick.value.trim(),
           odds: parseFloat(fOdds.value),
-          stake,
-          status: "active",
+          stake: parseInt(fStake.value, 10),
         });
-        saveState();
+
+        if (error) {
+          showToast("Greška: " + error.message);
+          $("pay-btn").disabled = false;
+          return;
+        }
         fMatch.value = fPick.value = fOdds.value = fStake.value = "";
         showToast("Tip uplaćen. Srećno!");
+        await refreshTips();
         showScreen("tipovi");
       });
 
-      /* ===== MOJI TIPOVI ===== */
+      /* ===== TIPOVI SVIH IGRAČA ===== */
       function renderTips() {
         const list = $("tip-list");
-        if (!state.tips.length) {
+        if (!allTips.length) {
           list.innerHTML =
-            "<p class='empty'>Još nemaš tipova. Klikni Novi tip u meniju.</p>";
+            "<p class='empty'>Još nema tipova u ligi. Budi prvi!</p>";
           return;
         }
-        list.innerHTML = state.tips
-          .map(
-            (t) => `
-    <div class="tip-card">
+        list.innerHTML = allTips
+          .map((t) => {
+            const mine = t.player_name === user;
+            return `
+    <div class="tip-card${mine ? " mine" : ""}">
+      <div class="player">${mine ? t.player_name + " (ti)" : t.player_name}</div>
       <div class="top-row">
         <div class="info">
-          <div class="teams">${t.match}</div>
-          <div class="detail">Tip: ${t.pick} · Kvota ${t.odds.toFixed(2)} · Ulog ${t.stake} tk</div>
+          <div class="teams">${t.match_name}</div>
+          <div class="detail">Tip: ${t.pick} · Kvota ${Number(t.odds).toFixed(2)} · Ulog ${t.stake} tk</div>
         </div>
         ${
           t.status === "active"
-            ? `<span class="win">${fmt(t.stake * t.odds)} bod.</span>`
+            ? `<span class="win">${fmt(t.stake * Number(t.odds))} bod.</span>`
             : `<span class="badge ${t.status}">${t.status === "won" ? "PROŠAO" : "PAO"}</span>`
         }
       </div>
       ${
-        t.status === "active"
+        t.status === "active" && mine
           ? `
         <div class="settle">
           <button class="btn-won"  data-id="${t.id}" data-res="won">Prošao</button>
@@ -905,30 +944,49 @@
         </div>`
           : ""
       }
-    </div>`,
-          )
+    </div>`;
+          })
           .join("");
 
+        /* rezultat može označiti samo vlasnik tipa */
         list.querySelectorAll(".settle button").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            const tip = state.tips.find((t) => t.id === Number(btn.dataset.id));
-            tip.status = btn.dataset.res;
-            if (tip.status === "won") state.points += tip.stake * tip.odds;
-            saveState();
-            renderAll();
+          btn.addEventListener("click", async () => {
+            const { error } = await db
+              .from("tips")
+              .update({ status: btn.dataset.res })
+              .eq("id", Number(btn.dataset.id));
+            if (error) {
+              showToast("Greška: " + error.message);
+              return;
+            }
+            await refreshTips();
           });
         });
       }
 
-      /* ===== LEADERBOARD ===== */
+      /* ===== LEADERBOARD — iz istih podataka ===== */
       function renderLeaderboard() {
-        $("lb-body").innerHTML = `
-    <tr class="me">
-      <td class="pos">1</td>
-      <td>${state.user || "—"} (ti)</td>
-      <td class="pts right">${fmt(state.points)}</td>
-      <td class="right">${fmt(state.balance)}</td>
-    </tr>`;
+        const names = [...new Set(allTips.map((t) => t.player_name))];
+        const rows = names
+          .map((n) => ({ name: n, ...statsFor(n) }))
+          .sort((a, b) => b.points - a.points || b.balance - a.balance);
+
+        if (!rows.length) {
+          $("lb-body").innerHTML =
+            `<tr><td colspan="4" class="empty" style="padding:14px">Još nema igrača.</td></tr>`;
+          return;
+        }
+        $("lb-body").innerHTML = rows
+          .map(
+            (p, i) => `
+    <tr class="${p.name === user ? "me" : ""}">
+      <td class="pos">${i + 1}</td>
+      <td>${p.name}${p.name === user ? " (ti)" : ""}</td>
+      <td class="pts right">${fmt(p.points)}</td>
+      <td class="right">${fmt(p.balance)}</td>
+    </tr>`,
+          )
+          .join("");
       }
 
       /* ===== TOAST ===== */
@@ -949,7 +1007,7 @@
       }
 
       /* ===== START ===== */
-      showScreen(state.user ? "lige" : "login");
+      showScreen(user ? "lige" : "login");
     </script>
   </body>
 </html>
