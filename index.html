@@ -129,12 +129,12 @@
         padding: 18px 16px calc(var(--nav-h) + 28px);
       }
 
-      /* ===== LOGIN ===== */
+      /* ===== LOGIN / REGISTRACIJA ===== */
       #screen-login .content {
         padding-bottom: 20px;
       }
       .login-box {
-        padding-top: 16vh;
+        padding-top: 10vh;
         text-align: center;
       }
       .login-box .eyebrow {
@@ -147,7 +147,7 @@
         font-family: "Oswald", sans-serif;
         font-size: 32px;
         font-weight: 600;
-        margin: 4px 0 30px;
+        margin: 4px 0 26px;
       }
       .login-box input {
         width: 100%;
@@ -162,6 +162,9 @@
       }
       .login-box input::placeholder {
         color: var(--ink-dim);
+      }
+      .login-box input.hidden {
+        display: none;
       }
       .btn-gold {
         display: block;
@@ -179,11 +182,25 @@
       .btn-gold:active {
         filter: brightness(0.95);
       }
-      .login-note {
-        font-size: 12px;
+      .btn-gold:disabled {
+        opacity: 0.5;
+      }
+      .auth-err {
+        color: #e06a5a;
+        font-size: 12.5px;
+        min-height: 18px;
+        margin-top: 10px;
+      }
+      .auth-switch {
+        margin-top: 16px;
+        font-size: 13px;
         color: var(--ink-dim);
-        margin-top: 14px;
-        line-height: 1.5;
+      }
+      .auth-switch button {
+        color: var(--gold);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        font-size: 13px;
       }
 
       /* ===== LIGE ===== */
@@ -573,21 +590,37 @@
         </div>
       </header>
 
-      <!-- ═══════ LOGIN ═══════ -->
+      <!-- ═══════ LOGIN / REGISTRACIJA ═══════ -->
       <section class="screen" id="screen-login">
         <div class="content">
           <div class="login-box">
             <span class="eyebrow">Tipster liga</span>
-            <h1>Dobrodošao</h1>
+            <h1 id="auth-title">Prijava</h1>
+            <!-- ime se prikazuje samo pri registraciji -->
             <input
-              id="login-name"
+              id="auth-name"
+              class="hidden"
               type="text"
-              placeholder="Tvoje ime"
-              autocomplete="off"
+              placeholder="Tvoje ime u ligi"
+              autocomplete="nickname"
             />
-            <button class="btn-gold" id="login-btn">Uđi</button>
-            <p class="login-note">
-              Upiši isto ime svaki put — ono je za sad tvoj identitet u ligi.
+            <input
+              id="auth-email"
+              type="email"
+              placeholder="Email"
+              autocomplete="email"
+            />
+            <input
+              id="auth-pass"
+              type="password"
+              placeholder="Lozinka (min 6 znakova)"
+              autocomplete="current-password"
+            />
+            <button class="btn-gold" id="auth-btn">Prijavi se</button>
+            <div class="auth-err" id="auth-err" role="alert"></div>
+            <p class="auth-switch">
+              <span id="switch-text">Nemaš nalog?</span>
+              <button id="switch-btn">Registruj se</button>
             </p>
           </div>
         </div>
@@ -671,7 +704,7 @@
         </div>
       </section>
 
-      <!-- ═══════ TIPOVI (svi igrači) ═══════ -->
+      <!-- ═══════ TIPOVI ═══════ -->
       <section class="screen" id="screen-tipovi">
         <div class="content">
           <h2 class="screen-title">Tipovi lige</h2>
@@ -734,9 +767,7 @@
 
     <script>
       /* =====================================================
-   SUPABASE — zajednička baza za sve igrače.
-   Publishable key je javan po dizajnu; podatke
-   štite policy pravila u bazi, ne tajnost ključa.
+   SUPABASE
    ===================================================== */
       const SUPABASE_URL = "https://dmgbddfyjucfnnlhjmbm.supabase.co";
       const SUPABASE_KEY = "sb_publishable_JLKEZOoKEwTEQAnmfLqdkA_lpkdUj6L";
@@ -745,15 +776,103 @@
       const START_BALANCE = 500;
       const LEAGUE_NAME = "Ekipa iz kraja";
 
-      /* Lokalno se čuva SAMO tvoje ime — svi tipovi žive u bazi. */
-      let user = localStorage.getItem("tipster-user") || null;
-
-      /* Keš svih tipova iz baze; refreshTips() ga puni. */
+      /* Prijavljeni korisnik: { id, name } ili null.
+   Sesiju čuva supabase-js sam (preživi refresh). */
+      let user = null;
       let allTips = [];
 
       const fmt = (n) =>
         Number(n).toLocaleString("sr-Latn", { maximumFractionDigits: 2 });
       const $ = (id) => document.getElementById(id);
+
+      /* =====================================================
+   AUTH — registracija i prijava
+   ===================================================== */
+      let authMode = "login"; // "login" ili "register"
+
+      function setAuthMode(mode) {
+        authMode = mode;
+        const reg = mode === "register";
+        $("auth-title").textContent = reg ? "Registracija" : "Prijava";
+        $("auth-btn").textContent = reg ? "Napravi nalog" : "Prijavi se";
+        $("auth-name").classList.toggle("hidden", !reg);
+        $("switch-text").textContent = reg ? "Već imaš nalog?" : "Nemaš nalog?";
+        $("switch-btn").textContent = reg ? "Prijavi se" : "Registruj se";
+        $("auth-err").textContent = "";
+      }
+      $("switch-btn").addEventListener("click", () =>
+        setAuthMode(authMode === "login" ? "register" : "login"),
+      );
+
+      $("auth-btn").addEventListener("click", async () => {
+        const email = $("auth-email").value.trim();
+        const pass = $("auth-pass").value;
+        const name = $("auth-name").value.trim();
+        const errEl = $("auth-err");
+        errEl.textContent = "";
+
+        if (authMode === "register" && !name) {
+          errEl.textContent = "Upiši ime u ligi.";
+          return;
+        }
+        if (!email || !pass) {
+          errEl.textContent = "Upiši email i lozinku.";
+          return;
+        }
+
+        $("auth-btn").disabled = true;
+
+        let result;
+        if (authMode === "register") {
+          /* ime se čuva u metadata naloga — odatle ga čitamo kao display name */
+          result = await db.auth.signUp({
+            email,
+            password: pass,
+            options: { data: { display_name: name } },
+          });
+        } else {
+          result = await db.auth.signInWithPassword({ email, password: pass });
+        }
+        $("auth-btn").disabled = false;
+
+        if (result.error) {
+          errEl.textContent = prevediAuthGresku(result.error.message);
+          return;
+        }
+        if (!result.data.session) {
+          /* desi se samo ako je "Confirm email" ostao uključen u dashboardu */
+          errEl.textContent = "Provjeri email i potvrdi nalog, pa se prijavi.";
+          return;
+        }
+        setUserFromSession(result.data.session);
+        showScreen("lige");
+      });
+      $("auth-pass").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") $("auth-btn").click();
+      });
+
+      function prevediAuthGresku(msg) {
+        if (msg.includes("Invalid login credentials"))
+          return "Pogrešan email ili lozinka.";
+        if (msg.includes("already registered"))
+          return "Nalog s tim emailom već postoji.";
+        if (msg.includes("at least 6 characters"))
+          return "Lozinka mora imati bar 6 znakova.";
+        return "Greška: " + msg;
+      }
+
+      function setUserFromSession(session) {
+        user = {
+          id: session.user.id,
+          name: session.user.user_metadata.display_name || session.user.email,
+        };
+      }
+
+      $("logout-btn").addEventListener("click", async () => {
+        await db.auth.signOut();
+        user = null;
+        showScreen("login");
+      });
 
       /* =====================================================
    PODACI
@@ -771,8 +890,6 @@
         renderAll();
       }
 
-      /* Balans i bodovi se NE čuvaju posebno — računaju se iz tipova:
-   balans = 500 − svi ulozi; bodovi = zbir (ulog × kvota) prošlih tipova */
       function statsFor(name) {
         const mine = allTips.filter((t) => t.player_name === name);
         const spent = mine.reduce((s, t) => s + t.stake, 0);
@@ -804,40 +921,20 @@
 
         if (name === "lige") {
           $("header-eyebrow").textContent = "Tipster liga";
-          $("header-title").textContent = user || "—";
+          $("header-title").textContent = user ? user.name : "—";
         } else if (IN_LEAGUE.includes(name)) {
-          $("header-eyebrow").textContent = user || "";
+          $("header-eyebrow").textContent = user ? user.name : "";
           $("header-title").textContent = LEAGUE_NAME;
         }
 
         renderAll();
-        if (name !== "login") refreshTips(); // svjež podatak sa servera pri svakom prelasku
+        if (name !== "login") refreshTips();
       }
       document
         .querySelectorAll("[data-go]")
         .forEach((btn) =>
           btn.addEventListener("click", () => showScreen(btn.dataset.go)),
         );
-
-      /* ===== LOGIN ===== */
-      $("login-btn").addEventListener("click", () => {
-        const name = $("login-name").value.trim();
-        if (!name) {
-          $("login-name").focus();
-          return;
-        }
-        user = name;
-        localStorage.setItem("tipster-user", user);
-        showScreen("lige");
-      });
-      $("login-name").addEventListener("keydown", (e) => {
-        if (e.key === "Enter") $("login-btn").click();
-      });
-      $("logout-btn").addEventListener("click", () => {
-        user = null;
-        localStorage.removeItem("tipster-user");
-        showScreen("login");
-      });
 
       /* ===== LIGE ===== */
       $("league-open").addEventListener("click", () => showScreen("tipovi"));
@@ -848,7 +945,7 @@
       /* ===== HEADER ===== */
       function renderHeader() {
         if (!user) return;
-        const me = statsFor(user);
+        const me = statsFor(user.name);
         $("balance-chip").textContent = fmt(me.balance);
         $("points-chip").textContent = fmt(me.points);
 
@@ -869,7 +966,7 @@
       function validate() {
         const odds = parseFloat(fOdds.value);
         const stake = parseInt(fStake.value, 10);
-        const balance = user ? statsFor(user).balance : 0;
+        const balance = user ? statsFor(user.name).balance : 0;
         let msg = "";
         if (!fMatch.value.trim()) msg = "Upiši par.";
         else if (!fPick.value.trim()) msg = "Upiši tip.";
@@ -889,10 +986,12 @@
 
       $("pay-btn").addEventListener("click", async () => {
         if (!validate()) return;
-        $("pay-btn").disabled = true; // spriječi dupli klik dok upis traje
+        $("pay-btn").disabled = true;
 
+        /* user_id popunjava baza sama (default auth.uid()) —
+     zato je nemoguće uplatiti tip u tuđe ime */
         const { error } = await db.from("tips").insert({
-          player_name: user,
+          player_name: user.name,
           match_name: fMatch.value.trim(),
           pick: fPick.value.trim(),
           odds: parseFloat(fOdds.value),
@@ -920,7 +1019,7 @@
         }
         list.innerHTML = allTips
           .map((t) => {
-            const mine = t.player_name === user;
+            const mine = user && t.user_id === user.id;
             return `
     <div class="tip-card${mine ? " mine" : ""}">
       <div class="player">${mine ? t.player_name + " (ti)" : t.player_name}</div>
@@ -948,7 +1047,6 @@
           })
           .join("");
 
-        /* rezultat može označiti samo vlasnik tipa */
         list.querySelectorAll(".settle button").forEach((btn) => {
           btn.addEventListener("click", async () => {
             const { error } = await db
@@ -964,7 +1062,7 @@
         });
       }
 
-      /* ===== LEADERBOARD — iz istih podataka ===== */
+      /* ===== LEADERBOARD ===== */
       function renderLeaderboard() {
         const names = [...new Set(allTips.map((t) => t.player_name))];
         const rows = names
@@ -979,9 +1077,9 @@
         $("lb-body").innerHTML = rows
           .map(
             (p, i) => `
-    <tr class="${p.name === user ? "me" : ""}">
+    <tr class="${user && p.name === user.name ? "me" : ""}">
       <td class="pos">${i + 1}</td>
-      <td>${p.name}${p.name === user ? " (ti)" : ""}</td>
+      <td>${p.name}${user && p.name === user.name ? " (ti)" : ""}</td>
       <td class="pts right">${fmt(p.points)}</td>
       <td class="right">${fmt(p.balance)}</td>
     </tr>`,
@@ -1006,8 +1104,18 @@
         validate();
       }
 
-      /* ===== START ===== */
-      showScreen(user ? "lige" : "login");
+      /* ===== START — provjeri postoji li sačuvana sesija ===== */
+      (async () => {
+        const {
+          data: { session },
+        } = await db.auth.getSession();
+        if (session) {
+          setUserFromSession(session);
+          showScreen("lige");
+        } else {
+          showScreen("login");
+        }
+      })();
     </script>
   </body>
 </html>
